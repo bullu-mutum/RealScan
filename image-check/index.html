@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Image Check Prototypes</title>
+<style>
+  /* Layout: one centred column; two device cards side by side, stacking on phones. Swiss-style type, one orange accent (matches the decks). */
+  :root {
+    --bg: #F5F4F1;
+    --surface: #FFFFFF;
+    --fg: #17171A;
+    --muted: #5F5F66;
+    --line: rgba(23, 23, 26, 0.12);
+    --accent: #E64700;
+    --accent-ink: #FFFFFF;
+    --font: "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #131316; --surface: #1C1C21; --fg: #F2F1EE; --muted: #A3A3AB;
+      --line: rgba(242, 241, 238, 0.14); --accent: #FF5A14; --accent-ink: #FFFFFF;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #131316; --surface: #1C1C21; --fg: #F2F1EE; --muted: #A3A3AB;
+    --line: rgba(242, 241, 238, 0.14); --accent: #FF5A14; --accent-ink: #FFFFFF;
+    color-scheme: dark;
+  }
+
+  body {
+    background: var(--bg); color: var(--fg); font-family: var(--font);
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 48px 56px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; display: flex; flex-direction: column; gap: 36px; }
+
+  header { display: flex; flex-direction: column; gap: 12px; max-width: 640px; }
+  .eyebrow { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  h1 { font-size: clamp(36px, 6vw, 56px); line-height: 1.02; font-weight: 500; letter-spacing: -0.02em; text-wrap: balance; margin: 0; }
+  h1 .mark { display: inline-block; width: 0.62em; height: 0.62em; border-radius: 0.16em; background: var(--accent); vertical-align: 0.06em; margin-right: 0.2em; }
+  .lede { font-size: 17px; line-height: 1.5; color: var(--muted); margin: 0; }
+
+  .cards { display: grid; grid-template-columns: 0.8fr 1.2fr; gap: 20px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 18px; overflow: hidden;
+    display: flex; flex-direction: column; text-decoration: none; color: inherit; min-width: 0;
+    transition: transform 0.15s ease, border-color 0.15s ease;
+  }
+  .card:hover { transform: translateY(-2px); border-color: var(--accent); }
+  .card:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .shot { background: var(--bg); display: flex; align-items: center; justify-content: center; padding: 20px; height: 340px; border-bottom: 1px solid var(--line); }
+  .shot img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+  .shot.laptop img { border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.18); }
+  .card-body { padding: 18px 20px 20px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+  .card-body h2 { font-size: 20px; font-weight: 600; margin: 0; }
+  .card-body p { font-size: 14.5px; line-height: 1.5; color: var(--muted); margin: 0; }
+  .open { margin-top: auto; padding-top: 6px; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 14.5px; color: var(--accent); }
+  .tag { font-size: 12px; color: var(--muted); }
+
+  .notes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; border-top: 1px solid var(--line); padding-top: 22px; }
+  .notes > div { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .notes b { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  .notes p { font-size: 14px; line-height: 1.5; margin: 0; }
+  .states { display: flex; flex-wrap: wrap; gap: 6px; }
+  .states span { font-size: 12.5px; font-weight: 600; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); }
+
+  footer { font-size: 13px; color: var(--muted); }
+
+  @media (max-width: 760px) {
+    .cards, .notes { grid-template-columns: 1fr; }
+    .shot { height: 300px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .card { transition: none; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Product Design Intern Challenge · Real, AI-enhanced or AI-generated?</span>
+    <h1><span class="mark" aria-hidden="true"></span>Image Check</h1>
+    <p class="lede">Check any image in one tap, see the evidence, and decide for yourself. Two clickable prototypes of the same feature: one for phone, one for laptop.</p>
+  </header>
+
+  <section class="cards" aria-label="Prototypes">
+    <a class="card" href="phone.html">
+      <div class="shot"><img src="assets/preview_phone.png" alt="iPhone prototype showing an AI-enhanced result with its evidence"></div>
+      <div class="card-body">
+        <h2>iPhone prototype</h2>
+        <p>Take a screenshot with the side button, tap the thumbnail, then tap Check for AI. Or share the original image to Image Check.</p>
+        <span class="open">Open the iPhone prototype →</span>
+      </div>
+    </a>
+    <a class="card" href="laptop.html">
+      <div class="shot laptop"><img src="assets/preview_laptop.png" alt="Laptop prototype with a chat window and the step-by-step guide"></div>
+      <div class="card-body">
+        <h2>Laptop prototype</h2>
+        <p>Click Take screenshot and drag a box over an image, then click Check for AI. Or drag an image onto the pop-up in the corner.</p>
+        <span class="tag">Best on a laptop or desktop screen</span>
+        <span class="open">Open the laptop prototype →</span>
+      </div>
+    </a>
+  </section>
+
+  <section class="notes" aria-label="About these prototypes">
+    <div>
+      <b>Four results</b>
+      <div class="states"><span>Real</span><span>AI-enhanced</span><span>AI-generated</span><span>Can't verify</span></div>
+    </div>
+    <div>
+      <b>Two ways in</b>
+      <p>A screenshot (fast, but loses edit history) or the original file (adds edit history, so the result can say more).</p>
+    </div>
+    <div>
+      <b>Simulated detection</b>
+      <p>The checks are simulated. The prototypes show how results, evidence and uncertainty are explained.</p>
+    </div>
+  </section>
+
+  <footer>Bulluraj Mutum · M.Des (UX) · Test images made or edited by the author.</footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Image Check: iPhone prototype</title>
+  <style>
+    /* ---------------------------------------------------------------------
+       Tokens (shared with the laptop prototype)
+       --------------------------------------------------------------------- */
+    :root {
+      --page: #0E0F13;
+      --ink: #1C1C1E;
+      --ink-2: #3A3A3C;
+      --mute: #6E6E73;
+      --hair: rgba(0, 0, 0, 0.09);
+      --panel: #F2F2F5;
+      --accent: #FF4F00;
+      --real: #1E7F3C;   --real-bg: #E7F5EC;
+      --enh: #9A5B00;    --enh-bg: #FFF2DC;
+      --gen: #5B3CC4;    --gen-bg: #EEE9FC;
+      --unk: #55555B;    --unk-bg: #EDEDF0;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+      background: radial-gradient(1200px 700px at 35% 40%, #1B1D26 0%, var(--page) 60%);
+      color: #FFFFFF;
+      display: flex; align-items: center; justify-content: center; gap: 190px;
+      padding: 56px 24px 32px;
+      user-select: none; -webkit-user-select: none;
+    }
+    button { font: inherit; cursor: pointer; }
+    button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    .chip-top {
+      position: fixed; top: 14px; display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px; padding: 6px 10px; font-size: 12px; color: rgba(255,255,255,0.85);
+      text-decoration: none;
+    }
+    .chip-top.left { left: 16px; }
+    .chip-top.right { right: 16px; }
+    .chip-top .dot { width: 16px; height: 16px; border-radius: 4px; background: var(--accent); display: flex; align-items: center; justify-content: center; }
+    .chip-top .dot svg { width: 10px; height: 10px; fill: #FFF; }
+
+    /* ---------------------------------------------------------------------
+       iPhone frame
+       --------------------------------------------------------------------- */
+    .iphone {
+      position: relative; width: 360px; height: 740px; flex-shrink: 0;
+      border-radius: 56px; background: #2A2B30; padding: 12px;
+      box-shadow: 0 0 0 2px #3C3D43, 0 40px 90px rgba(0,0,0,0.6);
+    }
+    .hw { position: absolute; width: 4px; background: #3C3D43; border-radius: 2px; }
+    .hw.action { left: -4px; top: 130px; height: 30px; }
+    .hw.vol-up { left: -4px; top: 180px; height: 52px; }
+    .hw.vol-down { left: -4px; top: 244px; height: 52px; }
+    .hw.side { right: -5px; top: 200px; height: 84px; width: 5px; border: none; padding: 0; background: #4A4B52; }
+    .hw.side:hover { background: var(--accent); }
+    .side-hint {
+      position: absolute; right: -170px; top: 234px; font-size: 11px; color: rgba(255,255,255,0.6);
+      display: flex; align-items: center; gap: 6px; pointer-events: none;
+    }
+    .side-hint::before { content: ""; width: 18px; height: 1px; background: rgba(255,255,255,0.35); }
+
+    .screen {
+      position: relative; width: 100%; height: 100%; border-radius: 45px; overflow: hidden;
+      background: #FFFFFF; color: var(--ink);
+      overflow: clip;            /* never let the screen itself scroll */
+    }
+    .island { position: absolute; top: 11px; left: 50%; transform: translateX(-50%); width: 112px; height: 32px; border-radius: 20px; background: #000; z-index: 150; }
+    .status {
+      position: absolute; top: 0; left: 0; right: 0; height: 52px; padding: 0 28px; z-index: 40;
+      display: flex; align-items: center; justify-content: space-between; font-size: 15px; font-weight: 600;
+    }
+    .status .icons { display: flex; gap: 5px; align-items: center; }
+    .status svg { width: 17px; height: 12px; fill: currentColor; }
+
+    /* ---------------------------------------------------------------------
+       Chat app (neutral, fictional)
+       --------------------------------------------------------------------- */
+    .chat { position: absolute; inset: 0; display: flex; flex-direction: column; padding-top: 52px; }
+    .chat-head { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 4px 0 10px; border-bottom: 1px solid var(--hair); background: rgba(249,249,250,0.96); }
+    .chat-head .back { position: absolute; left: 16px; top: 66px; color: #0A84FF; font-size: 15px; }
+    .avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #FF8A5B, #FF4F00); color: #FFF; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+    .chat-head span { font-size: 12px; color: var(--ink-2); }
+    .chat-body { flex: 1; overflow-y: auto; padding: 14px 14px 10px; display: flex; flex-direction: column; gap: 10px; }
+    .msg { max-width: 80%; display: flex; flex-direction: column; gap: 5px; }
+    .msg.them { align-self: flex-start; }
+    .msg.me { align-self: flex-end; align-items: flex-end; }
+    .bubble { padding: 8px 12px; border-radius: 18px; font-size: 14px; line-height: 1.3; }
+    .them .bubble { background: #E9E9EB; border-bottom-left-radius: 5px; }
+    .me .bubble { background: #0A84FF; color: #FFF; border-bottom-right-radius: 5px; }
+    .img-wrap { display: flex; align-items: flex-end; gap: 8px; }
+    .chat-img { display: block; border: none; padding: 0; background: none; border-radius: 16px; overflow: hidden; width: 150px; box-shadow: 0 0 0 1px var(--hair); }
+    .chat-img img { display: block; width: 100%; height: auto; }
+    .chat-img.selected { box-shadow: 0 0 0 3px var(--accent); }
+    .share-btn {
+      width: 30px; height: 30px; border-radius: 50%; border: none; background: #E9E9EB; color: #0A84FF;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .share-btn svg { width: 15px; height: 15px; fill: currentColor; }
+    .chat-time { align-self: center; font-size: 11px; color: var(--mute); }
+    .chat-input { padding: 8px 12px 30px; border-top: 1px solid var(--hair); background: #F9F9FA; }
+    .chat-input div { height: 34px; border-radius: 17px; border: 1px solid #D1D1D6; color: var(--mute); font-size: 14px; display: flex; align-items: center; padding: 0 14px; background: #FFF; }
+    .home-bar { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); width: 130px; height: 5px; border-radius: 3px; background: #1C1C1E; z-index: 140; }
+
+    /* ---------------------------------------------------------------------
+       Screenshot: flash + bottom-left thumbnail
+       --------------------------------------------------------------------- */
+    #flash { position: absolute; inset: 0; background: #FFF; opacity: 0; pointer-events: none; z-index: 70; transition: opacity 0.3s ease; }
+    #flash.on { opacity: 0.9; transition: none; }
+    #thumb {
+      position: absolute; left: 14px; bottom: 34px; width: 74px; height: 104px; z-index: 65;
+      border-radius: 10px; overflow: hidden; border: 3px solid #FFF; padding: 0;
+      box-shadow: 0 10px 28px rgba(0,0,0,0.35);
+      transform: translateX(-130px); transition: transform 0.35s cubic-bezier(0.2, 0.9, 0.25, 1);
+    }
+    #thumb.show { transform: translateX(0); }
+    #thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .thumb-tip { position: absolute; left: 98px; bottom: 74px; z-index: 65; background: rgba(28,28,30,0.9); color: #FFF; font-size: 12px; padding: 6px 10px; border-radius: 10px; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+    .thumb-tip.show { opacity: 1; }
+
+    /* ---------------------------------------------------------------------
+       Screenshot editor (with Check for AI)
+       --------------------------------------------------------------------- */
+    #editor {
+      position: absolute; inset: 0; background: #0B0B0D; z-index: 80; color: #FFF;
+      display: flex; flex-direction: column; padding: 56px 16px 30px;
+      opacity: 0; pointer-events: none; transition: opacity 0.2s ease;
+    }
+    #editor.show { opacity: 1; pointer-events: auto; }
+    .ed-top { display: flex; justify-content: space-between; align-items: center; }
+    .ed-top button { background: rgba(255,255,255,0.12); border: none; color: #FFF; height: 32px; padding: 0 14px; border-radius: 16px; font-size: 14px; font-weight: 600; }
+    .ed-top .x { width: 32px; padding: 0; }
+    .ed-canvas { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 16px 8px; }
+    .ed-canvas img { max-width: 78%; max-height: 100%; border-radius: 6px; box-shadow: 0 0 0 1px rgba(255,255,255,0.25); }
+    .ed-tools { display: flex; justify-content: space-around; padding: 10px 6px 14px; opacity: 0.75; font-size: 18px; }
+    .btn-check { height: 46px; border: none; border-radius: 23px; background: var(--accent); color: #FFF; font-size: 15px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 8px 24px rgba(255,79,0,0.35); }
+    .btn-check svg { width: 16px; height: 16px; fill: #FFF; }
+    .ed-note { text-align: center; font-size: 11px; color: rgba(255,255,255,0.55); margin-top: 8px; }
+
+    /* ---------------------------------------------------------------------
+       Share sheet (second way in: check the original)
+       --------------------------------------------------------------------- */
+    #share-sheet {
+      position: absolute; left: 0; right: 0; bottom: 0; z-index: 90;
+      background: #F2F2F7; border-radius: 22px 22px 0 0; padding: 8px 14px 34px;
+      transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.2, 0.9, 0.25, 1);
+    }
+    #share-sheet.show { transform: translateY(0); }
+    .share-head { display: flex; align-items: center; gap: 10px; padding: 8px 2px 12px; border-bottom: 1px solid var(--hair); }
+    .share-head img { width: 40px; height: 52px; border-radius: 6px; object-fit: cover; }
+    .share-head div { flex: 1; font-size: 13px; color: var(--mute); line-height: 1.35; }
+    .share-head strong { color: var(--ink); font-size: 14px; }
+    .share-head button { width: 28px; height: 28px; border-radius: 50%; border: none; background: #E3E3E8; color: var(--ink-2); font-size: 13px; }
+    .share-apps { display: flex; gap: 16px; padding: 14px 2px 10px; }
+    .share-app { display: flex; flex-direction: column; align-items: center; gap: 6px; background: none; border: none; font-size: 11px; color: var(--ink); width: 62px; }
+    .share-app .ic { width: 56px; height: 56px; border-radius: 14px; background: #FFF; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 1px var(--hair); }
+    .share-app .ic svg { width: 26px; height: 26px; fill: #8E8E93; }
+    .share-app.ic-check .ic { background: var(--accent); box-shadow: 0 6px 16px rgba(255,79,0,0.3); }
+    .share-app.ic-check .ic svg { fill: #FFF; }
+    .share-actions { background: #FFF; border-radius: 12px; overflow: hidden; }
+    .share-actions div { padding: 12px 14px; font-size: 14px; border-bottom: 1px solid var(--hair); color: var(--ink); }
+    .share-actions div:last-child { border-bottom: none; }
+    .share-note { font-size: 11.5px; color: var(--mute); margin-top: 10px; text-align: center; }
+
+    /* ---------------------------------------------------------------------
+       Image Check sheet
+       --------------------------------------------------------------------- */
+    #dim { position: absolute; inset: 0; background: rgba(0,0,0,0.35); z-index: 85; opacity: 0; pointer-events: none; transition: opacity 0.25s; }
+    #dim.show { opacity: 1; pointer-events: auto; }
+    #sheet {
+      position: absolute; left: 0; right: 0; bottom: 0; height: 88%; z-index: 95;
+      background: #FFF; color: var(--ink); border-radius: 22px 22px 0 0;
+      transform: translateY(100%); transition: transform 0.35s cubic-bezier(0.2, 0.9, 0.25, 1);
+      display: flex; flex-direction: column;
+    }
+    #sheet.show { transform: translateY(0); }
+    .grabber { width: 38px; height: 5px; border-radius: 3px; background: #D1D1D6; margin: 7px auto 0; }
+    .sheet-head { display: flex; align-items: center; justify-content: space-between; padding: 8px 16px 10px; border-bottom: 1px solid var(--hair); }
+    .brand { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; }
+    .brand-dot { width: 22px; height: 22px; border-radius: 6px; background: var(--accent); display: flex; align-items: center; justify-content: center; }
+    .brand-dot svg { width: 13px; height: 13px; fill: #FFF; }
+    .sheet-close { width: 28px; height: 28px; border-radius: 50%; border: none; background: var(--panel); color: var(--ink-2); font-size: 13px; }
+    .sheet-body { flex: 1; overflow-y: auto; padding: 14px 16px 34px; display: flex; flex-direction: column; gap: 13px; }
+
+    .img-row { display: flex; gap: 12px; align-items: center; }
+    .img-row img { width: 46px; height: 60px; border-radius: 6px; object-fit: cover; box-shadow: 0 0 0 1px var(--hair); }
+    .img-row div { font-size: 12px; color: var(--mute); line-height: 1.4; }
+    .img-row strong { color: var(--ink); font-size: 14px; }
+    .source-tag { display: inline-block; margin-top: 3px; font-size: 11px; font-weight: 600; color: var(--ink-2); background: var(--panel); border-radius: 6px; padding: 2px 7px; }
+
+    .step-list { list-style: none; display: flex; flex-direction: column; gap: 9px; }
+    .step { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--ink-2); }
+    .step .ico { width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .spinner { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #D8D8DD; border-top-color: var(--accent); animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .step.done .ico::before { content: "✓"; color: var(--real); font-weight: 700; }
+    .step.skip { color: var(--mute); }
+    .step.skip .ico::before { content: "–"; color: var(--mute); font-weight: 700; }
+
+    .verdict { border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 6px; }
+    .verdict.real { background: var(--real-bg); }
+    .verdict.enhanced { background: var(--enh-bg); }
+    .verdict.generated { background: var(--gen-bg); }
+    .verdict.uncertain { background: var(--unk-bg); }
+    .verdict-label { display: inline-flex; align-items: center; gap: 7px; font-weight: 700; font-size: 12px; letter-spacing: 0.02em; text-transform: uppercase; }
+    .verdict.real .verdict-label { color: var(--real); }
+    .verdict.enhanced .verdict-label { color: var(--enh); }
+    .verdict.generated .verdict-label { color: var(--gen); }
+    .verdict.uncertain .verdict-label { color: var(--unk); }
+    .verdict-icon { min-width: 18px; height: 18px; padding: 0 3px; border-radius: 9px; display: flex; align-items: center; justify-content: center; color: #FFF; font-size: 10px; font-weight: 800; }
+    .verdict.real .verdict-icon { background: var(--real); }
+    .verdict.enhanced .verdict-icon { background: var(--enh); }
+    .verdict.generated .verdict-icon { background: var(--gen); }
+    .verdict.uncertain .verdict-icon { background: var(--unk); }
+    .verdict h2 { font-size: 19px; line-height: 1.22; }
+    .verdict p { font-size: 13.5px; line-height: 1.45; color: var(--ink-2); }
+
+    .sure { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--ink-2); }
+    .sure-meter { display: flex; gap: 3px; }
+    .sure-meter i { width: 22px; height: 6px; border-radius: 3px; background: rgba(0,0,0,0.12); }
+    .sure-meter i.on { background: var(--ink); }
+
+    .section-title { font-size: 11.5px; font-weight: 600; color: var(--mute); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+    .evidence { list-style: none; border-top: 1px solid var(--hair); }
+    .evidence li { display: flex; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--hair); }
+    .ev-ico { width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; margin-top: 1px; }
+    .ev-ico.found { background: var(--ink); color: #FFF; }
+    .ev-ico.none { background: #FFF; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--ink); }
+    .ev-ico.na { background: var(--panel); color: var(--mute); }
+    .ev-text strong { display: block; font-size: 13.5px; }
+    .ev-text span { font-size: 12.5px; color: var(--mute); line-height: 1.4; }
+
+    .tip { background: var(--panel); border-radius: 12px; padding: 11px 12px; font-size: 13px; line-height: 1.45; color: var(--ink-2); display: flex; flex-direction: column; gap: 8px; }
+    .tip strong { color: var(--ink); }
+    .tip button { align-self: flex-start; height: 32px; padding: 0 12px; border-radius: 16px; border: 1px solid var(--accent); background: #FFF; color: var(--accent); font-weight: 600; font-size: 13px; }
+
+    .btn-primary { height: 46px; border: none; border-radius: 13px; background: var(--ink); color: #FFF; font-weight: 600; font-size: 15px; }
+    .btn-secondary { height: 46px; border-radius: 13px; border: 1px solid #D1D1D6; background: #FFF; color: var(--ink); font-weight: 500; font-size: 15px; }
+    .actions { display: flex; flex-direction: column; gap: 8px; }
+    .btn-link { background: none; border: none; color: var(--mute); font-size: 13px; text-decoration: underline; text-underline-offset: 2px; align-self: center; padding: 2px 0; }
+
+    .disagree { display: none; flex-direction: column; gap: 8px; background: var(--panel); border-radius: 12px; padding: 12px; }
+    .disagree.show { display: flex; }
+    .disagree p { font-size: 13px; color: var(--ink-2); }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip { height: 32px; padding: 0 12px; border-radius: 16px; border: 1px solid #D1D1D6; background: #FFF; color: var(--ink); font-size: 13px; }
+    .disagree .thanks { display: none; font-size: 13px; color: var(--ink-2); }
+    .footnote { font-size: 12px; color: var(--mute); text-align: center; line-height: 1.4; }
+
+    #toast {
+      position: absolute; left: 50%; bottom: 44px; transform: translateX(-50%) translateY(16px); z-index: 160;
+      background: rgba(28,28,30,0.92); color: #FFF; padding: 9px 14px; border-radius: 12px; font-size: 13px;
+      width: max-content; max-width: 86%; text-align: center; opacity: 0; pointer-events: none; transition: all 0.25s ease;
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ---------------------------------------------------------------------
+       Guide panel (for reviewers)
+       --------------------------------------------------------------------- */
+    .guide { width: 300px; flex-shrink: 0; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+    .guide-top { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: rgba(255,255,255,0.55); }
+    .pill { background: rgba(255,79,0,0.16); color: #FF8A5B; border: 1px solid rgba(255,79,0,0.4); padding: 3px 9px; border-radius: 10px; font-weight: 700; letter-spacing: 0.04em; }
+    .guide h2 { font-size: 18px; }
+    .guide p { font-size: 13px; color: rgba(255,255,255,0.7); line-height: 1.45; }
+    .g-steps { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+    .g-step { display: flex; gap: 10px; align-items: center; padding: 9px 10px; border-radius: 11px; background: rgba(255,255,255,0.04); border: 1px solid transparent; }
+    .g-step.active { border-color: rgba(255,79,0,0.6); background: rgba(255,79,0,0.1); }
+    .g-step.done { opacity: 0.55; }
+    .g-num { width: 22px; height: 22px; border-radius: 50%; background: rgba(255,255,255,0.12); font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .g-step.active .g-num { background: var(--accent); }
+    .g-step.done .g-num::after { content: "✓"; }
+    .g-step.done .g-num span { display: none; }
+    .g-step b { display: block; font-size: 13px; }
+    .g-step small { font-size: 11.5px; color: rgba(255,255,255,0.55); }
+    .g-btn { height: 42px; border: none; border-radius: 12px; background: var(--accent); color: #FFF; font-weight: 600; font-size: 14px; }
+    .g-alt { font-size: 12px; color: rgba(255,255,255,0.7); background: rgba(255,255,255,0.04); border-radius: 10px; padding: 9px 10px; line-height: 1.45; }
+    .g-alt b { color: #FFF; }
+    .g-keys { font-size: 11px; color: rgba(255,255,255,0.45); text-align: center; }
+    .g-keys kbd { background: rgba(255,255,255,0.12); border-radius: 4px; padding: 1px 5px; font-family: inherit; }
+    .g-images { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    .g-images button { border: 2px solid transparent; border-radius: 8px; padding: 0; overflow: hidden; background: none; height: 58px; }
+    .g-images button.on { border-color: var(--accent); }
+    .g-images img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .g-label { font-size: 11px; color: rgba(255,255,255,0.55); }
+
+    @media (max-width: 760px) {
+      body { flex-direction: column; gap: 24px; padding-top: 64px; }
+      .side-hint { display: none; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      * { transition: none !important; animation: none !important; }
+    }
+
+    /* Capture mode: just the phone, transparent page, no motion */
+    .capture *, .capture *::before, .capture *::after { transition: none !important; animation: none !important; }
+    .capture body { background: transparent; padding: 12px; display: block; min-height: 0; }
+    .capture .guide, .capture .chip-top, .capture .side-hint { display: none; }
+    .capture .iphone { box-shadow: 0 0 0 2px #3C3D43, 0 6px 14px rgba(0,0,0,0.25); }
+  </style>
+</head>
+<body>
+
+  <span class="chip-top left">
+    <span class="dot"><svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg></span>
+    Image Check · iPhone prototype
+  </span>
+  <a class="chip-top right" href="laptop.html">Laptop prototype →</a>
+
+  <!-- ===================================================================
+       iPhone
+       =================================================================== -->
+  <div class="iphone">
+    <span class="hw action"></span><span class="hw vol-up"></span><span class="hw vol-down"></span>
+    <button class="hw side" id="side-btn" aria-label="Side button: take a screenshot" title="Side button: take a screenshot"></button>
+    <span class="side-hint">Side button = screenshot</span>
+
+    <div class="screen" id="screen">
+      <div class="island"></div>
+      <div class="status">
+        <span id="clock">9:41</span>
+        <span class="icons">
+          <svg viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+          <svg viewBox="0 0 26 12"><rect x="0.5" y="0.5" width="22" height="11" rx="3" fill="none" stroke="currentColor"/><rect x="2" y="2" width="17" height="8" rx="2"/><rect x="24" y="4" width="2" height="4" rx="1"/></svg>
+        </span>
+      </div>
+
+      <!-- Chat -->
+      <div class="chat">
+        <div class="chat-head">
+          <span class="back">‹ 4</span>
+          <div class="avatar">R</div>
+          <span>Riya ›</span>
+        </div>
+        <div class="chat-body" id="chat-body">
+          <div class="chat-time">Today 21:04</div>
+          <div class="msg them">
+            <div class="bubble">Took this last night, the lights were unreal 😍</div>
+            <div class="img-wrap">
+              <button class="chat-img" data-state="enhanced" aria-label="Select image: alley at night"><img src="./assets/test/enhanced.png" alt="Narrow alley at night with string lights"></button>
+              <button class="share-btn" data-state="enhanced" aria-label="Share this image"><svg viewBox="0 0 24 24"><path d="M12 3l-4.5 4.5 1.4 1.4L11 6.8V15h2V6.8l2.1 2.1 1.4-1.4L12 3zM5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6h-2v6H7v-6H5z"/></svg></button>
+            </div>
+          </div>
+          <div class="msg them">
+            <div class="bubble">Is this real?? Saw it on Insta</div>
+            <div class="img-wrap">
+              <button class="chat-img" data-state="generated" aria-label="Select image: person at an aquarium"><img src="./assets/test/generated.png" alt="Person photographing an aquarium tank"></button>
+              <button class="share-btn" data-state="generated" aria-label="Share this image"><svg viewBox="0 0 24 24"><path d="M12 3l-4.5 4.5 1.4 1.4L11 6.8V15h2V6.8l2.1 2.1 1.4-1.4L12 3zM5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6h-2v6H7v-6H5z"/></svg></button>
+            </div>
+          </div>
+          <div class="msg me"><div class="bubble">Not sure, let me check</div></div>
+          <div class="msg them">
+            <div class="bubble">Lunch 🥟</div>
+            <div class="img-wrap">
+              <button class="chat-img" data-state="real" aria-label="Select image: plate of dumplings"><img src="./assets/test/real.png" alt="Plate of dumplings with sauce"></button>
+              <button class="share-btn" data-state="real" aria-label="Share this image"><svg viewBox="0 0 24 24"><path d="M12 3l-4.5 4.5 1.4 1.4L11 6.8V15h2V6.8l2.1 2.1 1.4-1.4L12 3zM5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6h-2v6H7v-6H5z"/></svg></button>
+            </div>
+          </div>
+          <div class="msg them">
+            <div class="bubble">Found this in a group, no idea where it's from</div>
+            <div class="img-wrap">
+              <button class="chat-img" data-state="uncertain" aria-label="Select image: drinks on a café table"><img src="./assets/test/uncertain.png" alt="Hand holding a drink at a café table"></button>
+              <button class="share-btn" data-state="uncertain" aria-label="Share this image"><svg viewBox="0 0 24 24"><path d="M12 3l-4.5 4.5 1.4 1.4L11 6.8V15h2V6.8l2.1 2.1 1.4-1.4L12 3zM5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6h-2v6H7v-6H5z"/></svg></button>
+            </div>
+          </div>
+        </div>
+        <div class="chat-input"><div>Message</div></div>
+      </div>
+
+      <!-- Screenshot -->
+      <div id="flash"></div>
+      <button id="thumb" aria-label="Open screenshot"><img id="thumb-img" src="./assets/test/enhanced.png" alt="Screenshot thumbnail"></button>
+      <span class="thumb-tip" id="thumb-tip">Tap to open</span>
+
+      <!-- Screenshot editor -->
+      <div id="editor" role="dialog" aria-label="Screenshot editor">
+        <div class="ed-top">
+          <button class="x" id="ed-close" aria-label="Discard screenshot">✕</button>
+          <button id="ed-done">Done</button>
+        </div>
+        <div class="ed-canvas"><img id="ed-img" src="./assets/test/enhanced.png" alt="Your screenshot"></div>
+        <div class="ed-tools" aria-hidden="true"><span>✎</span><span>✐</span><span>◯</span><span>T</span><span>⋯</span></div>
+        <button class="btn-check" id="btn-check">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+          Check for AI
+        </button>
+        <p class="ed-note">Image Check looks for watermarks, the original online, and AI signs.</p>
+      </div>
+
+      <div id="dim"></div>
+
+      <!-- Share sheet: check the original image -->
+      <section id="share-sheet" role="dialog" aria-label="Share">
+        <div class="share-head">
+          <img id="share-img" src="./assets/test/enhanced.png" alt="">
+          <div><strong>Photo from Riya</strong><br>Original image</div>
+          <button id="share-close" aria-label="Close">✕</button>
+        </div>
+        <div class="share-apps">
+          <button class="share-app ic-check" id="share-check">
+            <span class="ic"><svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg></span>
+            Image Check
+          </button>
+          <span class="share-app"><span class="ic"><svg viewBox="0 0 24 24"><path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z"/></svg></span>Mail</span>
+          <span class="share-app"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 5h18v2H3zm0 6h18v2H3zm0 6h12v2H3z"/></svg></span>Notes</span>
+          <span class="share-app"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></span>More</span>
+        </div>
+        <div class="share-actions"><div>Copy</div><div>Save Image</div></div>
+        <p class="share-note">Sharing the original keeps its edit history, so Image Check can say more.</p>
+      </section>
+
+      <!-- Image Check sheet -->
+      <section id="sheet" role="dialog" aria-label="Image Check result" aria-live="polite">
+        <div class="grabber"></div>
+        <div class="sheet-head">
+          <div class="brand"><span class="brand-dot"><svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg></span>Image Check</div>
+          <button class="sheet-close" id="sheet-close" aria-label="Close">✕</button>
+        </div>
+        <div class="sheet-body" id="sheet-body"></div>
+      </section>
+
+      <div id="toast" role="status"></div>
+      <div class="home-bar"></div>
+    </div>
+  </div>
+
+  <!-- ===================================================================
+       Guide panel
+       =================================================================== -->
+  <aside class="guide" aria-label="Prototype guide">
+    <div class="guide-top"><span class="pill" id="g-pill">STEP 1 OF 4</span><span>Interactive prototype</span></div>
+    <div>
+      <h2 id="g-title">Take a screenshot</h2>
+      <p id="g-desc" style="margin-top:4px">Pick an image in the chat, then press the side button on the right.</p>
+    </div>
+    <ol class="g-steps">
+      <li class="g-step active"><span class="g-num"><span>1</span></span><div><b>Take a screenshot</b><small>Side button, or the button below</small></div></li>
+      <li class="g-step"><span class="g-num"><span>2</span></span><div><b>Tap the thumbnail</b><small>Opens the screenshot editor</small></div></li>
+      <li class="g-step"><span class="g-num"><span>3</span></span><div><b>Tap Check for AI</b><small>Runs the checks together</small></div></li>
+      <li class="g-step"><span class="g-num"><span>4</span></span><div><b>Read the result</b><small>Evidence, how sure, next steps</small></div></li>
+    </ol>
+    <button class="g-btn" id="g-btn">Take screenshot</button>
+    <div class="g-alt"><b>Second way in:</b> tap the share icon next to an image, then <b>Image Check</b>. Checking the original adds its edit history.</div>
+    <div>
+      <div class="g-label" style="margin-bottom:6px">Try each result: pick an image</div>
+      <div class="g-images" id="g-images">
+        <button data-state="real" title="Real"><img src="./assets/test/real.png" alt="Real"></button>
+        <button data-state="enhanced" class="on" title="AI-enhanced"><img src="./assets/test/enhanced.png" alt="AI-enhanced"></button>
+        <button data-state="generated" title="AI-generated"><img src="./assets/test/generated.png" alt="AI-generated"></button>
+        <button data-state="uncertain" title="Can't verify"><img src="./assets/test/uncertain.png" alt="Can't verify"></button>
+      </div>
+    </div>
+    <div class="g-keys">Press <kbd>Space</kbd> to go to the next step · <kbd>Esc</kbd> to start over</div>
+  </aside>
+
+  <script>
+    /* -------------------------------------------------------------------
+       Result data (identical in the laptop prototype).
+       mode "shot": a screenshot, so edit history is not available.
+       mode "original": the shared file, so edit history can be read.
+       ------------------------------------------------------------------- */
+    const BASE = {
+      real: {
+        cls: 'real', icon: '✓', label: 'Real', title: 'This looks like a real photo',
+        summary: 'We found the same photo online before, unedited, and no signs of AI.',
+        sure: 2, sureText: 'Fairly sure',
+        evidence: [['found', 'Original found', 'Same photo posted online earlier, with no edits'], ['none', 'No AI watermark', 'No Google SynthID watermark'], ['none', 'AI detectors', 'Low chance of AI. A hint, not proof']],
+        primary: ['See the original', 'Opening the original post…'], secondary: ['Ask the sender', 'Copied: "Hey, where did you get this?"']
+      },
+      enhanced: {
+        cls: 'enhanced', icon: '!', label: 'AI-enhanced', title: 'A real photo, edited with AI',
+        summary: 'This started as a real photo, but parts of it were changed with an AI tool.',
+        sure: 2, sureText: 'Fairly sure',
+        evidence: [['found', 'AI edit mark found', 'Google SynthID: edited with an AI tool'], ['found', 'Similar original found', 'An earlier version looks different in places'], ['found', 'AI detectors', 'Some areas look AI-edited. A hint, not proof']],
+        primary: ['Compare with original', 'Opening the earlier version…'], secondary: ['Ask the sender', 'Copied: "Hey, was this edited?"']
+      },
+      generated: {
+        cls: 'generated', icon: 'AI', label: 'AI-generated', title: 'This image was made by AI',
+        summary: 'A hidden AI watermark shows it was created by an image generator, not taken with a camera.',
+        sure: 3, sureText: 'Very sure',
+        evidence: [['found', 'AI watermark found', 'Google SynthID: made with an image generator'], ['none', 'No earlier original', 'No real photo of this scene found online'], ['found', 'AI detectors', 'High chance of AI. A hint, not proof']],
+        primary: ['Don\'t share', 'Okay. Nothing was shared.'], secondary: ['Tell the sender', 'Copied: "Heads up, this looks AI-made."']
+      },
+      uncertain: {
+        cls: 'uncertain', icon: '?', label: 'Can\'t verify', title: 'We can\'t tell if this is real',
+        summary: 'We didn\'t find enough evidence either way. That doesn\'t mean it\'s real, or fake.',
+        sure: 0, sureText: 'Not sure',
+        evidence: [['none', 'No watermark found', 'It may never have had one, or it was removed'], ['none', 'No matches online', 'We couldn\'t find where it first appeared'], ['none', 'AI detectors disagree', 'Mixed results, so we don\'t rely on them']],
+        primary: ['Ask the sender', 'Copied: "Where did you get this image?"'], secondary: ['Search again later', 'We\'ll recheck this image tomorrow.']
+      }
+    };
+    const SHOT = {
+      real: { history: ['na', 'Edit history', 'Not available in screenshots'] },
+      enhanced: { history: ['na', 'Edit history', 'Not available in screenshots'], tip: '<strong>What changed?</strong> We can\'t see which parts were edited from a screenshot. The original file may carry its edit history.', tipBtn: true },
+      generated: { history: ['na', 'Edit history', 'Not available in screenshots'] },
+      uncertain: { history: ['na', 'Edit history', 'Not available in screenshots'], tip: '<strong>Have the original file?</strong> Check it instead of a screenshot. It may carry edit history that gives a clearer answer.', tipBtn: true }
+    };
+    const ORIGINAL = {
+      real: { history: ['found', 'Edit history', 'Content Credentials: taken with a phone camera, no edits'], sure: 3, sureText: 'Very sure', summary: 'Its edit history shows it came straight from a camera, and we found no signs of AI.' },
+      enhanced: { history: ['found', 'Edit history', 'Content Credentials: objects removed with an AI eraser'], sure: 3, sureText: 'Very sure', tip: '<strong>What changed:</strong> an AI eraser removed objects from this photo. The rest of the scene is from the camera.' },
+      generated: { history: ['found', 'Edit history', 'Content Credentials: created with Google\'s image generator'] },
+      uncertain: { history: ['none', 'No edit history', 'This file carries no Content Credentials'], tip: '<strong>Still unclear.</strong> Ask the sender where it came from, and take care before sharing it.' }
+    };
+    function getResult(state, mode) {
+      const base = BASE[state], extra = (mode === 'original' ? ORIGINAL : SHOT)[state];
+      return Object.assign({}, base, extra, { evidence: base.evidence.concat([extra.history]) });
+    }
+
+    /* -------------------------------------------------------------------
+       State
+       ------------------------------------------------------------------- */
+    const $ = id => document.getElementById(id);
+    let selected = 'enhanced';
+    let step = 1;
+    let runId = 0;
+    let thumbTimer = null;
+    const SRC = s => `./assets/test/${s}.png`;
+
+    function toast(text) {
+      const t = $('toast'); t.textContent = text; t.classList.add('show');
+      clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 2200);
+    }
+
+    function selectImage(state) {
+      selected = state;
+      document.querySelectorAll('.chat-img').forEach(b => b.classList.toggle('selected', b.dataset.state === state));
+      document.querySelectorAll('#g-images button').forEach(b => b.classList.toggle('on', b.dataset.state === state));
+      const target = document.querySelector(`.chat-img[data-state="${state}"]`);
+      if (target) {
+        const cb = $('chat-body');
+        cb.scrollTo({ top: target.offsetTop - cb.offsetTop - (cb.clientHeight - target.clientHeight) / 2, behavior: 'smooth' });
+      }
+    }
+
+    /* -------------------------------------------------------------------
+       Guide panel
+       ------------------------------------------------------------------- */
+    const GUIDE = {
+      1: ['Take a screenshot', 'Pick an image in the chat, then press the side button on the right.', 'Take screenshot'],
+      2: ['Tap the thumbnail', 'The screenshot thumbnail appears bottom-left. Tap it to open the editor.', 'Open screenshot'],
+      3: ['Tap Check for AI', 'Next to the usual screenshot tools there is one new button: Check for AI.', 'Check for AI'],
+      4: ['Read the result', 'See what was found, how sure it is, and decide what to do. Try another image, or check the original.', 'Start over']
+    };
+    function setStep(n) {
+      step = n;
+      const [t, d, b] = GUIDE[n];
+      $('g-pill').textContent = `STEP ${n} OF 4`;
+      $('g-title').textContent = t; $('g-desc').textContent = d; $('g-btn').textContent = b;
+      document.querySelectorAll('.g-step').forEach((el, i) => { el.classList.toggle('active', i + 1 === n); el.classList.toggle('done', i + 1 < n); });
+    }
+
+    /* -------------------------------------------------------------------
+       Way in 1: screenshot
+       ------------------------------------------------------------------- */
+    function takeScreenshot() {
+      resetOverlays();
+      $('flash').classList.add('on');
+      requestAnimationFrame(() => requestAnimationFrame(() => $('flash').classList.remove('on')));
+      $('thumb-img').src = SRC(selected);
+      $('thumb').classList.add('show'); $('thumb-tip').classList.add('show');
+      clearTimeout(thumbTimer);
+      thumbTimer = setTimeout(() => { $('thumb').classList.remove('show'); $('thumb-tip').classList.remove('show'); if (step === 2) setStep(1); }, 10000);
+      setStep(2);
+    }
+    function openEditor() {
+      clearTimeout(thumbTimer);
+      $('thumb').classList.remove('show'); $('thumb-tip').classList.remove('show');
+      $('ed-img').src = SRC(selected);
+      $('editor').classList.add('show');
+      setStep(3);
+    }
+
+    /* -------------------------------------------------------------------
+       Way in 2: share the original
+       ------------------------------------------------------------------- */
+    function openShare(state) {
+      resetOverlays();
+      selectImage(state);
+      $('share-img').src = SRC(state);
+      $('dim').classList.add('show'); $('share-sheet').classList.add('show');
+    }
+    function closeShare() { $('share-sheet').classList.remove('show'); $('dim').classList.remove('show'); }
+
+    /* -------------------------------------------------------------------
+       The check
+       ------------------------------------------------------------------- */
+    const STEPS = ['Looking for AI watermarks', 'Searching for the original online', 'Running AI detectors'];
+    function runCheck(mode) {
+      const id = ++runId;
+      $('share-sheet').classList.remove('show');
+      $('dim').classList.add('show'); $('sheet').classList.add('show');
+      const steps = mode === 'original' ? STEPS.concat(['Reading edit history']) : STEPS;
+      $('sheet-body').innerHTML = `
+        <div class="img-row"><img src="${SRC(selected)}" alt="Image being checked"><div><strong>Checking your ${mode === 'original' ? 'original image' : 'screenshot'}</strong><br>This takes a few seconds.</div></div>
+        <ul class="step-list">
+          ${steps.map((s, i) => `<li class="step" id="st-${i}"><span class="ico"><span class="spinner"></span></span>${s}</li>`).join('')}
+          ${mode === 'original' ? '' : '<li class="step skip"><span class="ico"></span>Edit history: not in screenshots</li>'}
+        </ul>`;
+      const gap = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 80 : 550;
+      steps.forEach((_, i) => setTimeout(() => {
+        if (id !== runId) return;
+        const el = $('st-' + i); if (el) { el.classList.add('done'); el.querySelector('.ico').innerHTML = ''; }
+      }, gap * (i + 1)));
+      setTimeout(() => { if (id === runId) { renderResult(selected, mode); setStep(4); } }, gap * (steps.length + 1));
+    }
+
+    function renderResult(state, mode) {
+      const r = getResult(state, mode);
+      const meter = [0, 1, 2].map(i => `<i class="${i < r.sure ? 'on' : ''}"></i>`).join('');
+      const icons = { found: '✓', none: '✕', na: '–' };
+      const names = { found: 'Found', none: 'Not found', na: 'Not available' };
+      const ran = r.evidence.filter(e => e[0] !== 'na').length;
+      const exclude = r.cls === 'uncertain' ? 'Not sure' : r.label;
+      $('sheet-body').innerHTML = `
+        <div class="img-row"><img src="${SRC(state)}" alt="Checked image"><div><strong>${mode === 'original' ? 'Original image checked' : 'Screenshot checked'}</strong><br>${ran} of 4 checks ran<br><span class="source-tag">${mode === 'original' ? 'Original file' : 'Screenshot'}</span></div></div>
+        <div class="verdict ${r.cls}">
+          <span class="verdict-label"><span class="verdict-icon">${r.icon}</span>${r.label}</span>
+          <h2>${r.title}</h2>
+          <p>${r.summary}</p>
+        </div>
+        <div class="sure"><span>How sure:</span><span class="sure-meter" aria-hidden="true">${meter}</span><strong>${r.sureText}</strong></div>
+        <div>
+          <div class="section-title">Why we think this</div>
+          <ul class="evidence">
+            ${r.evidence.map(([s, t, d]) => `<li><span class="ev-ico ${s}" role="img" aria-label="${names[s]}">${icons[s]}</span><div class="ev-text"><strong>${t}</strong><span>${d}</span></div></li>`).join('')}
+          </ul>
+        </div>
+        ${r.tip ? `<div class="tip"><span>${r.tip}</span>${r.tipBtn ? '<button id="tip-original">Check the original instead</button>' : ''}</div>` : ''}
+        <div class="actions">
+          <button class="btn-primary" id="act-1">${r.primary[0]}</button>
+          <button class="btn-secondary" id="act-2">${r.secondary[0]}</button>
+        </div>
+        <button class="btn-link" id="act-disagree">I disagree with this result</button>
+        <div class="disagree" id="disagree-box">
+          <p>What do you think this image is?</p>
+          <div class="chips">${['Real', 'AI-enhanced', 'AI-generated', 'Not sure'].filter(x => x !== exclude).map(x => `<button class="chip">${x}</button>`).join('')}</div>
+          <span class="thanks">Thanks. We'll use this to improve our checks. Your decision is yours either way.</span>
+        </div>
+        <p class="footnote">Image Check shows evidence, not a verdict.<br>You decide what to trust or share.</p>`;
+      $('act-1').onclick = () => toast(r.primary[1]);
+      $('act-2').onclick = () => toast(r.secondary[1]);
+      if ($('tip-original')) $('tip-original').onclick = () => runCheck('original');
+      const box = $('disagree-box');
+      $('act-disagree').onclick = () => { box.classList.toggle('show'); if (box.classList.contains('show')) { const sb = $('sheet-body'); sb.scrollTo({ top: sb.scrollHeight, behavior: 'smooth' }); } };
+      box.querySelectorAll('.chip').forEach(c => c.onclick = () => {
+        box.querySelector('.chips').style.display = 'none'; box.querySelector('p').style.display = 'none';
+        box.querySelector('.thanks').style.display = 'block';
+      });
+      $('sheet-body').scrollTop = 0;
+    }
+
+    function resetOverlays() {
+      runId++;
+      $('editor').classList.remove('show');
+      $('sheet').classList.remove('show'); $('share-sheet').classList.remove('show'); $('dim').classList.remove('show');
+      $('thumb').classList.remove('show'); $('thumb-tip').classList.remove('show');
+    }
+    function startOver() { resetOverlays(); setStep(1); }
+
+    /* -------------------------------------------------------------------
+       Wiring
+       ------------------------------------------------------------------- */
+    document.querySelectorAll('.chat-img').forEach(b => b.addEventListener('click', () => selectImage(b.dataset.state)));
+    document.querySelectorAll('.share-btn').forEach(b => b.addEventListener('click', () => openShare(b.dataset.state)));
+    document.querySelectorAll('#g-images button').forEach(b => b.addEventListener('click', () => { startOver(); selectImage(b.dataset.state); }));
+    $('side-btn').addEventListener('click', takeScreenshot);
+    $('thumb').addEventListener('click', openEditor);
+    $('btn-check').addEventListener('click', () => runCheck('shot'));
+    $('share-check').addEventListener('click', () => runCheck('original'));
+    $('share-close').addEventListener('click', closeShare);
+    $('ed-close').addEventListener('click', startOver);
+    $('ed-done').addEventListener('click', () => { startOver(); toast('Saved to Photos'); });
+    $('sheet-close').addEventListener('click', () => { runId++; $('sheet').classList.remove('show'); $('dim').classList.remove('show'); setStep($('editor').classList.contains('show') ? 3 : 1); });
+    $('dim').addEventListener('click', () => { if ($('share-sheet').classList.contains('show')) closeShare(); else $('sheet-close').click(); });
+
+    $('g-btn').addEventListener('click', () => {
+      if (step === 1) takeScreenshot();
+      else if (step === 2) openEditor();
+      else if (step === 3) runCheck('shot');
+      else startOver();
+    });
+    window.addEventListener('keydown', e => {
+      if (e.code === 'Space') { e.preventDefault(); $('g-btn').click(); }
+      if (e.key === 'Escape') startOver();
+    });
+
+    (function tick() {
+      const d = new Date();
+      $('clock').textContent = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).replace(/\s?[AP]M/i, '');
+      setTimeout(tick, 15000);
+    })();
+
+    selectImage('enhanced');
+
+    /* -------------------------------------------------------------------
+       Capture mode (for slides): ?capture=1&state=enhanced&mode=shot&view=result
+       Opens straight to one screen, with no guide panel and no animation.
+       Normal use (no ?capture) is unaffected.
+       ------------------------------------------------------------------- */
+    (function () {
+      const q = new URLSearchParams(location.search);
+      if (!q.has('capture')) return;
+      document.documentElement.classList.add('capture');
+      const state = q.get('state') || 'enhanced', mode = q.get('mode') || 'shot', view = q.get('view') || 'result';
+      selected = state;
+      document.querySelectorAll('.chat-img').forEach(b => b.classList.toggle('selected', b.dataset.state === state));
+      $('clock').textContent = '9:41';
+      if (view === 'thumb') { $('thumb-img').src = SRC(state); $('thumb').classList.add('show'); $('thumb-tip').classList.add('show'); }
+      if (view === 'editor') { $('ed-img').src = SRC(state); $('editor').classList.add('show'); }
+      if (view === 'share') { $('share-img').src = SRC(state); $('dim').classList.add('show'); $('share-sheet').classList.add('show'); }
+      if (view === 'result') { $('dim').classList.add('show'); $('sheet').classList.add('show'); renderResult(state, mode); }
+      if (view === 'chat') { const t = document.querySelector(`.chat-img[data-state="${state}"]`); if (t) $('chat-body').scrollTop = t.offsetTop - $('chat-body').offsetTop - 60; }
+    })();
+  </script>
+</body>
+</html>

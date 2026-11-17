@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Image Check: laptop prototype</title>
+  <style>
+    /* ---------------------------------------------------------------------
+       Tokens (shared with the iPhone prototype)
+       --------------------------------------------------------------------- */
+    :root {
+      --ink: #1C1C1E;
+      --ink-2: #3A3A3C;
+      --mute: #6E6E73;
+      --hair: rgba(0, 0, 0, 0.09);
+      --panel: #F2F2F5;
+      --accent: #FF4F00;
+      --real: #1E7F3C;   --real-bg: #E7F5EC;
+      --enh: #9A5B00;    --enh-bg: #FFF2DC;
+      --gen: #5B3CC4;    --gen-bg: #EEE9FC;
+      --unk: #55555B;    --unk-bg: #EDEDF0;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 100vw; height: 100vh; overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+      font-size: 13px; color: #FFFFFF;
+      background: #0b1021 url('./assets/macos_wallpaper.jpg') center / cover no-repeat;
+      user-select: none; -webkit-user-select: none;
+    }
+    button { font: inherit; cursor: pointer; }
+    button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    /* ---------------------------------------------------------------------
+       Menu bar
+       --------------------------------------------------------------------- */
+    #menubar {
+      position: fixed; top: 0; left: 0; width: 100%; height: 28px; z-index: 10000;
+      background: rgba(255,255,255,0.22); backdrop-filter: blur(28px) saturate(180%); -webkit-backdrop-filter: blur(28px) saturate(180%);
+      display: flex; justify-content: space-between; align-items: center; padding: 0 12px;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    }
+    .menu-left, .menu-right { display: flex; align-items: center; gap: 2px; }
+    .menu-item { padding: 3px 10px; }
+    .menu-item.app-name { font-weight: 700; }
+    .status-icon { display: flex; padding: 3px 6px; }
+    .status-icon svg { width: 15px; height: 15px; fill: #FFF; }
+    #clock { padding: 3px 8px; font-weight: 500; font-variant-numeric: tabular-nums; }
+    .proto-link { color: #FFF; text-decoration: none; background: rgba(0,0,0,0.25); padding: 2px 9px; border-radius: 5px; margin-left: 6px; font-size: 12px; }
+
+    .desktop-icons { position: absolute; top: 44px; right: 18px; display: flex; flex-direction: column; gap: 18px; align-items: center; }
+    .desktop-item { display: flex; flex-direction: column; align-items: center; width: 84px; }
+    .desktop-item img { width: 52px; height: 52px; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.35)); }
+    .desktop-item span { margin-top: 5px; font-size: 11.5px; font-weight: 500; text-shadow: 0 1px 3px rgba(0,0,0,0.7); }
+
+    /* ---------------------------------------------------------------------
+       Window shell
+       --------------------------------------------------------------------- */
+    .mac-window {
+      position: absolute; background: rgba(255,255,255,0.97); border-radius: 11px; overflow: hidden;
+      box-shadow: 0 25px 70px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.25);
+      display: flex; flex-direction: column; color: var(--ink); text-shadow: none;
+    }
+    .window-header { height: 46px; flex-shrink: 0; border-bottom: 1px solid var(--hair); display: flex; align-items: center; gap: 14px; padding: 0 16px; background: linear-gradient(#F9F9FA, #EEEEEF); cursor: grab; touch-action: none; }
+    .mac-window.dragging .window-header { cursor: grabbing; }
+    .mac-window.dragging { transition: none; }
+    .traffic-lights { display: flex; gap: 8px; }
+    .traffic { width: 12px; height: 12px; border-radius: 50%; border: none; padding: 0; }
+    .traffic.close { background: #FF5F56; } .traffic.min { background: #FFBD2E; } .traffic.max { background: #27C93F; }
+    .window-title { font-size: 13px; font-weight: 600; }
+
+    /* ---------------------------------------------------------------------
+       Chat window (same conversation as the iPhone)
+       --------------------------------------------------------------------- */
+    #chat-window { width: 520px; height: calc(100vh - 150px); max-height: 660px; top: 52px; left: max(300px, calc(50% - 430px)); z-index: 300; }
+    .chat-contact { display: flex; align-items: center; gap: 10px; }
+    .avatar { width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, #FF8A5B, #FF4F00); color: #FFF; font-weight: 700; font-size: 12px; display: flex; align-items: center; justify-content: center; }
+    .chat-contact small { display: block; font-size: 11px; color: var(--mute); font-weight: 400; }
+    .chat-body { flex: 1; overflow-y: auto; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; background: #FFF; }
+    .msg { max-width: 80%; display: flex; flex-direction: column; gap: 6px; }
+    .msg.them { align-self: flex-start; }
+    .msg.me { align-self: flex-end; align-items: flex-end; }
+    .bubble { padding: 8px 12px; border-radius: 16px; font-size: 13px; line-height: 1.35; }
+    .them .bubble { background: #E9E9EB; border-bottom-left-radius: 4px; }
+    .me .bubble { background: #0A84FF; color: #FFF; border-bottom-right-radius: 4px; }
+    .img-wrap { display: flex; align-items: flex-end; gap: 8px; position: relative; }
+    .chat-img { display: block; border: none; padding: 0; background: none; border-radius: 14px; overflow: hidden; width: 160px; box-shadow: 0 0 0 1px var(--hair); position: relative; cursor: default; }
+    .chat-img img { display: block; width: 100%; height: auto; }
+    .chat-img .hint { position: absolute; left: 8px; bottom: 8px; background: rgba(0,0,0,0.62); color: #FFF; font-size: 11px; padding: 3px 8px; border-radius: 10px; opacity: 0; transition: opacity 0.15s; }
+    .chat-img:hover .hint, .chat-img:focus-visible .hint { opacity: 1; }
+    .chat-time { align-self: center; font-size: 11px; color: var(--mute); }
+    .chat-input { flex-shrink: 0; border-top: 1px solid var(--hair); padding: 10px 14px; background: #FAFAFB; }
+    .chat-input div { height: 30px; border-radius: 15px; border: 1px solid var(--hair); background: #FFF; color: var(--mute); font-size: 12.5px; display: flex; align-items: center; padding: 0 12px; }
+
+
+    /* ---------------------------------------------------------------------
+       Screenshot flash + Clop-style pop-up
+       --------------------------------------------------------------------- */
+    /* Area selection (after Take screenshot) */
+    #select-layer { position: fixed; inset: 0; z-index: 19000; cursor: crosshair; display: none; }
+    #select-layer.show { display: block; }
+    #select-hint {
+      position: fixed; top: 44px; left: 50%; transform: translateX(-50%); z-index: 19001; pointer-events: none;
+      background: rgba(28,28,30,0.85); color: #FFF; font-size: 12.5px; padding: 7px 13px; border-radius: 9px; display: none;
+    }
+    #select-layer.show + #select-hint { display: block; }
+    #select-box {
+      position: absolute; display: none; border: 1px solid rgba(255,255,255,0.95);
+      background: rgba(255,255,255,0.10);
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.35), 0 0 0 9999px rgba(0,0,0,0.28);
+    }
+    #select-size {
+      position: absolute; display: none; font-size: 11px; font-variant-numeric: tabular-nums; color: #FFF;
+      background: rgba(28,28,30,0.8); padding: 2px 6px; border-radius: 5px; white-space: nowrap; pointer-events: none;
+    }
+    /* Clop-style drop zone: appears while an image is being dragged */
+    #drop-zone {
+      position: fixed; right: 22px; bottom: 96px; width: 230px; z-index: 16000;
+      background: rgba(250,250,252,0.96); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
+      border-radius: 16px; padding: 10px; color: var(--ink);
+      box-shadow: 0 18px 50px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.4);
+      transform: translateY(16px) scale(0.96); opacity: 0; pointer-events: none;
+      transition: transform 0.22s cubic-bezier(0.2, 0.9, 0.25, 1), opacity 0.18s ease;
+    }
+    #drop-zone.show { transform: none; opacity: 1; pointer-events: auto; }
+    .dz-inner {
+      border: 2px dashed rgba(255,79,0,0.55); border-radius: 11px; padding: 16px 12px;
+      display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    #drop-zone.over .dz-inner { background: #FFF1EA; border-color: var(--accent); border-style: solid; }
+    .dz-icon { width: 34px; height: 34px; border-radius: 9px; background: var(--accent); display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 14px rgba(255,79,0,0.3); }
+    .dz-icon svg { width: 18px; height: 18px; fill: #FFF; }
+    .dz-inner strong { font-size: 13px; }
+    .dz-inner span { font-size: 11.5px; color: var(--mute); line-height: 1.35; }
+    .chat-img { cursor: grab; }
+    .chat-img.dragging-src { opacity: 0.45; }
+    #flash { position: fixed; inset: 0; background: #FFF; opacity: 0; pointer-events: none; z-index: 20000; transition: opacity 0.25s ease; }
+    #flash.on { opacity: 0.85; transition: none; }
+    #shot-popup {
+      position: fixed; right: 22px; bottom: 96px; width: 268px; z-index: 15000;
+      background: rgba(250,250,252,0.96); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
+      border-radius: 14px; padding: 12px; color: var(--ink);
+      box-shadow: 0 18px 50px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.4);
+      transform: translateX(330px); opacity: 0; pointer-events: none;
+      transition: transform 0.35s cubic-bezier(0.2, 0.9, 0.25, 1), opacity 0.25s ease;
+    }
+    #shot-popup.show { transform: translateX(0); opacity: 1; pointer-events: auto; }
+    .shot-top { display: flex; gap: 12px; align-items: flex-start; }
+    .shot-thumb { width: 64px; height: 84px; border-radius: 8px; object-fit: cover; box-shadow: 0 0 0 1px var(--hair); flex-shrink: 0; }
+    .shot-meta { flex: 1; min-width: 0; }
+    .shot-meta strong { display: block; font-size: 13px; }
+    .shot-meta span { font-size: 11.5px; color: var(--mute); }
+    .shot-close { background: none; border: none; color: var(--mute); font-size: 16px; line-height: 1; padding: 0 2px; }
+    .btn-check { margin-top: 12px; width: 100%; height: 34px; border: none; border-radius: 9px; background: var(--accent); color: #FFF; font-weight: 600; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 7px; }
+    .btn-check svg { width: 15px; height: 15px; fill: #FFF; }
+    .shot-secondary { margin-top: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .btn-ghost { height: 28px; border-radius: 7px; border: 1px solid var(--hair); background: #FFF; color: var(--ink-2); font-size: 12px; }
+    .btn-ghost:hover { background: var(--panel); }
+
+    /* ---------------------------------------------------------------------
+       Image Check window (same content as the iPhone sheet)
+       --------------------------------------------------------------------- */
+    #check-window { width: 400px; max-height: calc(100vh - 130px); top: 52px; left: min(calc(100vw - 420px), calc(50% + 110px)); z-index: 12000; display: none; }
+    #check-window.show { display: flex; }
+    .brand { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13px; }
+    .brand-dot { width: 18px; height: 18px; border-radius: 5px; background: var(--accent); display: flex; align-items: center; justify-content: center; }
+    .brand-dot svg { width: 12px; height: 12px; fill: #FFF; }
+    .check-body { overflow-y: auto; padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 13px; }
+
+    .img-row { display: flex; gap: 12px; align-items: center; }
+    .img-row img { width: 46px; height: 60px; border-radius: 6px; object-fit: cover; box-shadow: 0 0 0 1px var(--hair); }
+    .img-row div { font-size: 12px; color: var(--mute); line-height: 1.4; }
+    .img-row strong { color: var(--ink); font-size: 13px; }
+    .source-tag { display: inline-block; margin-top: 3px; font-size: 11px; font-weight: 600; color: var(--ink-2); background: var(--panel); border-radius: 6px; padding: 2px 7px; }
+
+    .step-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+    .step { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--ink-2); }
+    .step .ico { width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .spinner { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #D8D8DD; border-top-color: var(--accent); animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .step.done .ico::before { content: "✓"; color: var(--real); font-weight: 700; }
+    .step.skip { color: var(--mute); }
+    .step.skip .ico::before { content: "–"; color: var(--mute); font-weight: 700; }
+
+    .verdict { border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 6px; }
+    .verdict.real { background: var(--real-bg); }
+    .verdict.enhanced { background: var(--enh-bg); }
+    .verdict.generated { background: var(--gen-bg); }
+    .verdict.uncertain { background: var(--unk-bg); }
+    .verdict-label { display: inline-flex; align-items: center; gap: 7px; font-weight: 700; font-size: 12px; letter-spacing: 0.02em; text-transform: uppercase; }
+    .verdict.real .verdict-label { color: var(--real); }
+    .verdict.enhanced .verdict-label { color: var(--enh); }
+    .verdict.generated .verdict-label { color: var(--gen); }
+    .verdict.uncertain .verdict-label { color: var(--unk); }
+    .verdict-icon { min-width: 18px; height: 18px; padding: 0 3px; border-radius: 9px; display: flex; align-items: center; justify-content: center; color: #FFF; font-size: 10px; font-weight: 800; }
+    .verdict.real .verdict-icon { background: var(--real); }
+    .verdict.enhanced .verdict-icon { background: var(--enh); }
+    .verdict.generated .verdict-icon { background: var(--gen); }
+    .verdict.uncertain .verdict-icon { background: var(--unk); }
+    .verdict h2 { font-size: 17px; line-height: 1.25; }
+    .verdict p { font-size: 12.5px; line-height: 1.45; color: var(--ink-2); }
+
+    .sure { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--ink-2); }
+    .sure-meter { display: flex; gap: 3px; }
+    .sure-meter i { width: 22px; height: 6px; border-radius: 3px; background: rgba(0,0,0,0.12); }
+    .sure-meter i.on { background: var(--ink); }
+
+    .section-title { font-size: 11px; font-weight: 600; color: var(--mute); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+    .evidence { list-style: none; border-top: 1px solid var(--hair); }
+    .evidence li { display: flex; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--hair); }
+    .ev-ico { width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; margin-top: 1px; }
+    .ev-ico.found { background: var(--ink); color: #FFF; }
+    .ev-ico.none { background: #FFF; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--ink); }
+    .ev-ico.na { background: var(--panel); color: var(--mute); }
+    .ev-text strong { display: block; font-size: 12.5px; }
+    .ev-text span { font-size: 12px; color: var(--mute); line-height: 1.4; }
+
+    .tip { background: var(--panel); border-radius: 10px; padding: 10px 12px; font-size: 12px; line-height: 1.45; color: var(--ink-2); display: flex; flex-direction: column; gap: 8px; }
+    .tip strong { color: var(--ink); }
+    .tip button { align-self: flex-start; height: 28px; padding: 0 11px; border-radius: 14px; border: 1px solid var(--accent); background: #FFF; color: var(--accent); font-weight: 600; font-size: 12px; }
+
+    .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .btn-primary { height: 34px; border: none; border-radius: 9px; background: var(--ink); color: #FFF; font-weight: 600; font-size: 12.5px; }
+    .btn-secondary { height: 34px; border-radius: 9px; border: 1px solid var(--hair); background: #FFF; color: var(--ink); font-weight: 500; font-size: 12.5px; }
+    .btn-secondary:hover { background: var(--panel); }
+    .btn-link { background: none; border: none; color: var(--mute); font-size: 12px; text-decoration: underline; text-underline-offset: 2px; align-self: flex-start; padding: 2px 0; }
+
+    .disagree { display: none; flex-direction: column; gap: 8px; background: var(--panel); border-radius: 10px; padding: 12px; }
+    .disagree.show { display: flex; }
+    .disagree p { font-size: 12.5px; color: var(--ink-2); }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip { height: 28px; padding: 0 11px; border-radius: 14px; border: 1px solid var(--hair); background: #FFF; color: var(--ink); font-size: 12px; }
+    .chip:hover { border-color: var(--accent); }
+    .disagree .thanks { display: none; font-size: 12px; color: var(--ink-2); }
+    .footnote { font-size: 11.5px; color: var(--mute); line-height: 1.4; }
+
+    #toast { position: fixed; left: 50%; bottom: 100px; transform: translateX(-50%) translateY(20px); background: rgba(28,28,30,0.92); color: #FFF; padding: 9px 14px; border-radius: 10px; font-size: 12.5px; opacity: 0; pointer-events: none; transition: all 0.25s ease; z-index: 30000; }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ---------------------------------------------------------------------
+       Guide panel (same steps as the iPhone)
+       --------------------------------------------------------------------- */
+    #guide {
+      position: fixed; left: 18px; top: 46px; width: 262px; z-index: 9000;
+      background: rgba(20,20,24,0.8); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 10px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3); text-shadow: none;
+    }
+    .guide-top { display: flex; justify-content: space-between; align-items: center; font-size: 10.5px; color: rgba(255,255,255,0.55); }
+    .pill { background: rgba(255,79,0,0.16); color: #FF8A5B; border: 1px solid rgba(255,79,0,0.4); padding: 2px 8px; border-radius: 9px; font-weight: 700; letter-spacing: 0.04em; }
+    #guide h2 { font-size: 15px; }
+    #guide p { font-size: 12px; color: rgba(255,255,255,0.7); line-height: 1.45; }
+    .g-steps { list-style: none; display: flex; flex-direction: column; gap: 5px; }
+    .g-step { display: flex; gap: 9px; align-items: center; padding: 7px 9px; border-radius: 10px; background: rgba(255,255,255,0.04); border: 1px solid transparent; }
+    .g-step.active { border-color: rgba(255,79,0,0.6); background: rgba(255,79,0,0.1); }
+    .g-step.done { opacity: 0.55; }
+    .g-num { width: 20px; height: 20px; border-radius: 50%; background: rgba(255,255,255,0.12); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .g-step.active .g-num { background: var(--accent); }
+    .g-step.done .g-num::after { content: "✓"; }
+    .g-step.done .g-num span { display: none; }
+    .g-step b { display: block; font-size: 12px; }
+    .g-step small { font-size: 11px; color: rgba(255,255,255,0.55); }
+    .g-btn { height: 36px; border: none; border-radius: 10px; background: var(--accent); color: #FFF; font-weight: 600; font-size: 13px; }
+    .g-alt { font-size: 11.5px; color: rgba(255,255,255,0.7); background: rgba(255,255,255,0.04); border-radius: 9px; padding: 8px 9px; line-height: 1.45; }
+    .g-alt b { color: #FFF; }
+    .g-keys { font-size: 10.5px; color: rgba(255,255,255,0.45); text-align: center; }
+    .g-keys kbd { background: rgba(255,255,255,0.12); border-radius: 4px; padding: 0 4px; font-family: inherit; }
+
+    /* ---------------------------------------------------------------------
+       Dock
+       --------------------------------------------------------------------- */
+    #dock-container { position: fixed; bottom: 12px; left: 0; width: 100%; display: flex; justify-content: center; pointer-events: none; z-index: 9999; }
+    #dock { pointer-events: auto; display: flex; align-items: flex-end; gap: 8px; padding: 6px 10px 8px; background: rgba(255,255,255,0.24); backdrop-filter: blur(35px) saturate(180%); -webkit-backdrop-filter: blur(35px) saturate(180%); border: 1px solid rgba(255,255,255,0.38); border-radius: 20px; box-shadow: 0 16px 40px rgba(0,0,0,0.38); }
+    .dock-item { display: flex; flex-direction: column; align-items: center; }
+    .dock-item img { width: 46px; height: 46px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.28)); transition: transform 0.15s; }
+    .dock-item:hover img { transform: scale(1.25) translateY(-5px); }
+    .dock-app { width: 46px; height: 46px; border-radius: 11px; background: var(--accent); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+    .dock-app svg { width: 26px; height: 26px; fill: #FFF; }
+    .dock-tile { width: 46px; height: 46px; border-radius: 11px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3); transition: transform 0.15s; }
+    .dock-tile svg { width: 24px; height: 24px; fill: #FFF; }
+    .dock-item:hover .dock-tile { transform: scale(1.18) translateY(-4px); }
+    .tile-files { background: #3F7FD9; } .tile-web { background: #2F9E8F; } .tile-chat { background: #34A853; }
+    .tile-photos { background: #C2477A; } .tile-notes { background: #D9A21B; } .tile-trash { background: #8A8A90; }
+    #narrow-note { display: none; }
+    @media (max-width: 760px) {
+      #narrow-note {
+        display: flex; position: fixed; inset: 0; z-index: 50000; background: #14151A; color: #FFF;
+        flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+        padding: 24px max(16px, env(safe-area-inset-right, 0px)) 24px max(16px, env(safe-area-inset-left, 0px));
+        text-align: center; font-size: 15px; line-height: 1.45;
+      }
+      #narrow-note a { color: #FFF; background: var(--accent); padding: 10px 18px; border-radius: 10px; text-decoration: none; font-weight: 600; }
+    }
+    .running-dot { width: 4px; height: 4px; background: #1C1C1E; border-radius: 50%; margin-top: 3px; }
+    .running-dot.off { visibility: hidden; }
+    .dock-separator { width: 1px; height: 40px; background: rgba(255,255,255,0.3); margin: 0 4px 4px; }
+
+    @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+  </style>
+</head>
+<body>
+
+  <div id="narrow-note"><strong>The laptop prototype needs a wider screen.</strong><span>Open this link on a laptop, or try the phone version here.</span><a href="phone.html">Open the iPhone prototype</a></div>
+
+  <header id="menubar">
+    <div class="menu-left">
+      <div class="menu-item app-name">Chat</div>
+      <div class="menu-item">File</div><div class="menu-item">Edit</div><div class="menu-item">View</div><div class="menu-item">Window</div><div class="menu-item">Help</div>
+    </div>
+    <div class="menu-right">
+      <div class="status-icon" title="Image Check is running"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1.2 14.2-3.9-3.9 1.4-1.4 2.5 2.5 5.5-5.5 1.4 1.4-6.9 6.9z"/></svg></div>
+      <div class="status-icon" title="Wi-Fi"><svg viewBox="0 0 24 24"><path d="M12 4C7.31 4 3.07 5.9 0 8.98L12 21 24 8.98C20.93 5.9 16.69 4 12 4z"/></svg></div>
+      <div id="clock">&nbsp;</div>
+      <a class="proto-link" href="phone.html">iPhone prototype →</a>
+    </div>
+  </header>
+
+  <!-- Chat window -->
+  <section class="mac-window" id="chat-window" aria-label="Chat with Riya">
+    <div class="window-header">
+      <div class="traffic-lights"><span class="traffic close"></span><span class="traffic min"></span><span class="traffic max"></span></div>
+      <div class="chat-contact"><div class="avatar">R</div><div class="window-title">Riya<small>Friend</small></div></div>
+    </div>
+    <div class="chat-body" id="chat-body">
+      <div class="chat-time">Today 21:04</div>
+      <div class="msg them">
+        <div class="bubble">Took this last night, the lights were unreal 😍</div>
+        <div class="img-wrap">
+          <div class="chat-img" data-state="enhanced" role="img" aria-label="alley at night"><img src="./assets/test/enhanced.png" alt="Narrow alley at night with string lights"></div>
+        </div>
+      </div>
+      <div class="msg them">
+        <div class="bubble">Is this real?? Saw it on Insta</div>
+        <div class="img-wrap">
+          <div class="chat-img" data-state="generated" role="img" aria-label="person at an aquarium"><img src="./assets/test/generated.png" alt="Person photographing an aquarium tank"></div>
+        </div>
+      </div>
+      <div class="msg me"><div class="bubble">Not sure, let me check</div></div>
+      <div class="msg them">
+        <div class="bubble">Lunch 🥟</div>
+        <div class="img-wrap">
+          <div class="chat-img" data-state="real" role="img" aria-label="plate of dumplings"><img src="./assets/test/real.png" alt="Plate of dumplings with sauce"></div>
+        </div>
+      </div>
+      <div class="msg them">
+        <div class="bubble">Found this in a group, no idea where it's from</div>
+        <div class="img-wrap">
+          <div class="chat-img" data-state="uncertain" role="img" aria-label="drinks on a café table"><img src="./assets/test/uncertain.png" alt="Hand holding a drink at a café table"></div>
+        </div>
+      </div>
+    </div>
+    <div class="chat-input"><div>Message</div></div>
+  </section>
+
+  <!-- Area selection -->
+  <div id="select-layer" aria-hidden="true"><div id="select-box"></div><div id="select-size"></div></div>
+  <div id="select-hint">Drag a box over an image to take a screenshot · Esc to cancel</div>
+
+  <!-- Drop zone (appears while dragging an image) -->
+  <aside id="drop-zone" aria-live="polite" aria-label="Drop to check for AI">
+    <div class="dz-inner">
+      <span class="dz-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg></span>
+      <strong>Drop to check for AI</strong>
+      <span>Checks the original file, including its edit history</span>
+    </div>
+  </aside>
+
+  <!-- Screenshot flash + pop-up -->
+  <div id="flash"></div>
+  <aside id="shot-popup" aria-live="polite" aria-label="Screenshot taken">
+    <div class="shot-top">
+      <img class="shot-thumb" id="shot-thumb" src="./assets/test/enhanced.png" alt="Screenshot preview">
+      <div class="shot-meta"><strong>Screenshot</strong><span>Saved just now</span></div>
+      <button class="shot-close" id="shot-close" aria-label="Dismiss">×</button>
+    </div>
+    <button class="btn-check" id="btn-check"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>Check for AI</button>
+    <div class="shot-secondary">
+      <button class="btn-ghost" data-toast="Copied to clipboard">Copy</button>
+      <button class="btn-ghost" data-toast="Saved to Screenshots">Save</button>
+    </div>
+  </aside>
+
+  <!-- Image Check window -->
+  <section class="mac-window" id="check-window" aria-label="Image Check" aria-live="polite">
+    <div class="window-header">
+      <div class="traffic-lights"><button class="traffic close" id="check-close" aria-label="Close Image Check"></button><span class="traffic min"></span><span class="traffic max"></span></div>
+      <div class="brand"><span class="brand-dot"><svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg></span>Image Check</div>
+    </div>
+    <div class="check-body" id="check-body"></div>
+  </section>
+
+  <div id="toast" role="status"></div>
+
+  <!-- Guide -->
+  <aside id="guide" aria-label="Prototype guide">
+    <div class="guide-top"><span class="pill" id="g-pill">STEP 1 OF 4</span><span>Interactive prototype</span></div>
+    <div><h2 id="g-title">Take a screenshot</h2><p id="g-desc" style="margin-top:3px">Click Take screenshot, then drag a box over an image. You can also drag an image straight to the bottom-right corner.</p></div>
+    <ol class="g-steps">
+      <li class="g-step active"><span class="g-num"><span>1</span></span><div><b>Take a screenshot</b><small>Click the button, drag a box</small></div></li>
+      <li class="g-step"><span class="g-num"><span>2</span></span><div><b>Pop-up appears</b><small>Bottom-right, like Clop</small></div></li>
+      <li class="g-step"><span class="g-num"><span>3</span></span><div><b>Click Check for AI</b><small>Runs the checks together</small></div></li>
+      <li class="g-step"><span class="g-num"><span>4</span></span><div><b>Read the result</b><small>Evidence, how sure, next steps</small></div></li>
+    </ol>
+    <button class="g-btn" id="g-btn">Take screenshot</button>
+    <div class="g-alt"><b>Second way in:</b> drag an image to the <b>Drop to check</b> pop-up that appears bottom-right. Checking the original adds its edit history.</div>
+    <div class="g-keys"><kbd>Space</kbd> next step · <kbd>Esc</kbd> start over</div>
+  </aside>
+
+  <!-- Dock -->
+  <div id="dock-container">
+    <nav id="dock" aria-label="Dock">
+      <div class="dock-item" title="Files"><div class="dock-tile tile-files"><svg viewBox="0 0 24 24"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg></div><div class="running-dot"></div></div>
+      <div class="dock-item" title="Browser"><div class="dock-tile tile-web"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="#FFF" stroke-width="2"/><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18" fill="none" stroke="#FFF" stroke-width="1.6"/></svg></div><div class="running-dot off"></div></div>
+      <div class="dock-item" title="Chat"><div class="dock-tile tile-chat"><svg viewBox="0 0 24 24"><path d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2z"/></svg></div><div class="running-dot"></div></div>
+      <div class="dock-item" title="Photos"><div class="dock-tile tile-photos"><svg viewBox="0 0 24 24"><path d="M21 19V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2zM8.5 13.5l2.5 3 3.5-4.5 4.5 6H5l3.5-4.5z"/></svg></div><div class="running-dot off"></div></div>
+      <div class="dock-item" title="Notes"><div class="dock-tile tile-notes"><svg viewBox="0 0 24 24"><path d="M4 5h16v2H4zm0 6h16v2H4zm0 6h10v2H4z"/></svg></div><div class="running-dot off"></div></div>
+      <div class="dock-separator"></div>
+      <div class="dock-item" title="Image Check"><div class="dock-app"><svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg></div><div class="running-dot"></div></div>
+      <div class="dock-item" title="Trash"><div class="dock-tile tile-trash"><svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></div><div class="running-dot off"></div></div>
+    </nav>
+  </div>
+
+  <script>
+    /* -------------------------------------------------------------------
+       Result data (identical to the iPhone prototype)
+       ------------------------------------------------------------------- */
+    const BASE = {
+      real: {
+        cls: 'real', icon: '✓', label: 'Real', title: 'This looks like a real photo',
+        summary: 'We found the same photo online before, unedited, and no signs of AI.',
+        sure: 2, sureText: 'Fairly sure',
+        evidence: [['found', 'Original found', 'Same photo posted online earlier, with no edits'], ['none', 'No AI watermark', 'No Google SynthID watermark'], ['none', 'AI detectors', 'Low chance of AI. A hint, not proof']],
+        primary: ['See the original', 'Opening the original post…'], secondary: ['Ask the sender', 'Copied: "Hey, where did you get this?"']
+      },
+      enhanced: {
+        cls: 'enhanced', icon: '!', label: 'AI-enhanced', title: 'A real photo, edited with AI',
+        summary: 'This started as a real photo, but parts of it were changed with an AI tool.',
+        sure: 2, sureText: 'Fairly sure',
+        evidence: [['found', 'AI edit mark found', 'Google SynthID: edited with an AI tool'], ['found', 'Similar original found', 'An earlier version looks different in places'], ['found', 'AI detectors', 'Some areas look AI-edited. A hint, not proof']],
+        primary: ['Compare with original', 'Opening the earlier version…'], secondary: ['Ask the sender', 'Copied: "Hey, was this edited?"']
+      },
+      generated: {
+        cls: 'generated', icon: 'AI', label: 'AI-generated', title: 'This image was made by AI',
+        summary: 'A hidden AI watermark shows it was created by an image generator, not taken with a camera.',
+        sure: 3, sureText: 'Very sure',
+        evidence: [['found', 'AI watermark found', 'Google SynthID: made with an image generator'], ['none', 'No earlier original', 'No real photo of this scene found online'], ['found', 'AI detectors', 'High chance of AI. A hint, not proof']],
+        primary: ['Don\'t share', 'Okay. Nothing was shared.'], secondary: ['Tell the sender', 'Copied: "Heads up, this looks AI-made."']
+      },
+      uncertain: {
+        cls: 'uncertain', icon: '?', label: 'Can\'t verify', title: 'We can\'t tell if this is real',
+        summary: 'We didn\'t find enough evidence either way. That doesn\'t mean it\'s real, or fake.',
+        sure: 0, sureText: 'Not sure',
+        evidence: [['none', 'No watermark found', 'It may never have had one, or it was removed'], ['none', 'No matches online', 'We couldn\'t find where it first appeared'], ['none', 'AI detectors disagree', 'Mixed results, so we don\'t rely on them']],
+        primary: ['Ask the sender', 'Copied: "Where did you get this image?"'], secondary: ['Search again later', 'We\'ll recheck this image tomorrow.']
+      }
+    };
+    const SHOT = {
+      real: { history: ['na', 'Edit history', 'Not available in screenshots'] },
+      enhanced: { history: ['na', 'Edit history', 'Not available in screenshots'], tip: '<strong>What changed?</strong> We can\'t see which parts were edited from a screenshot. The original file may carry its edit history.', tipBtn: true },
+      generated: { history: ['na', 'Edit history', 'Not available in screenshots'] },
+      uncertain: { history: ['na', 'Edit history', 'Not available in screenshots'], tip: '<strong>Have the original file?</strong> Check it instead of a screenshot. It may carry edit history that gives a clearer answer.', tipBtn: true }
+    };
+    const ORIGINAL = {
+      real: { history: ['found', 'Edit history', 'Content Credentials: taken with a phone camera, no edits'], sure: 3, sureText: 'Very sure', summary: 'Its edit history shows it came straight from a camera, and we found no signs of AI.' },
+      enhanced: { history: ['found', 'Edit history', 'Content Credentials: objects removed with an AI eraser'], sure: 3, sureText: 'Very sure', tip: '<strong>What changed:</strong> an AI eraser removed objects from this photo. The rest of the scene is from the camera.' },
+      generated: { history: ['found', 'Edit history', 'Content Credentials: created with Google\'s image generator'] },
+      uncertain: { history: ['none', 'No edit history', 'This file carries no Content Credentials'], tip: '<strong>Still unclear.</strong> Ask the sender where it came from, and take care before sharing it.' }
+    };
+    function getResult(state, mode) {
+      const base = BASE[state], extra = (mode === 'original' ? ORIGINAL : SHOT)[state];
+      return Object.assign({}, base, extra, { evidence: base.evidence.concat([extra.history]) });
+    }
+
+    /* -------------------------------------------------------------------
+       State & helpers
+       ------------------------------------------------------------------- */
+    const $ = id => document.getElementById(id);
+    const SRC = s => `./assets/test/${s}.png`;
+    let selected = 'enhanced';
+    let step = 1, runId = 0, popupTimer = null;
+
+    function toast(text) {
+      const t = $('toast'); t.textContent = text; t.classList.add('show');
+      clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 2200);
+    }
+
+    const GUIDE = {
+      1: ['Take a screenshot', 'Click Take screenshot, then drag a box over an image. You can also drag an image straight to the bottom-right corner.', 'Take screenshot'],
+      2: ['Pop-up appears', 'A small pop-up slides in bottom-right, like Clop, with one new button.', 'Check for AI'],
+      3: ['Click Check for AI', 'Image Check runs the checks together.', 'Checking…'],
+      4: ['Read the result', 'See what was found, how sure it is, and decide what to do. Try another image, or check the original.', 'Start over']
+    };
+    function setStep(n) {
+      step = n;
+      const [t, d, b] = GUIDE[n];
+      $('g-pill').textContent = `STEP ${n} OF 4`;
+      $('g-title').textContent = t; $('g-desc').textContent = d; $('g-btn').textContent = b;
+      document.querySelectorAll('.g-step').forEach((el, i) => { el.classList.toggle('active', i + 1 === n); el.classList.toggle('done', i + 1 < n); });
+    }
+
+    /* -------------------------------------------------------------------
+       Way in 1: screenshot + Clop-style pop-up
+       ------------------------------------------------------------------- */
+    function takeScreenshot(state) {
+      resetAll();
+      selected = state || selected;
+      $('flash').classList.add('on');
+      requestAnimationFrame(() => requestAnimationFrame(() => $('flash').classList.remove('on')));
+      $('shot-thumb').src = SRC(selected);
+      $('shot-popup').classList.add('show');
+      clearTimeout(popupTimer);
+      popupTimer = setTimeout(() => { $('shot-popup').classList.remove('show'); if (step === 2) setStep(1); }, 10000);
+      setStep(2);
+    }
+
+    /* -------------------------------------------------------------------
+       Take screenshot: drag a rectangle to choose what to capture
+       ------------------------------------------------------------------- */
+    const layer = $('select-layer'), box = $('select-box'), sizeLbl = $('select-size');
+    let selecting = false, sx = 0, sy = 0, dragActive = false;
+
+    function startSelect() {
+      resetAll();
+      selecting = true; dragActive = false;
+      box.style.display = 'none'; sizeLbl.style.display = 'none';
+      layer.classList.add('show');
+    }
+    function cancelSelect() {
+      selecting = false; dragActive = false;
+      layer.classList.remove('show');
+    }
+    function drawBox(x, y) {
+      const l = Math.min(sx, x), t = Math.min(sy, y), w = Math.abs(x - sx), h = Math.abs(y - sy);
+      Object.assign(box.style, { display: 'block', left: l + 'px', top: t + 'px', width: w + 'px', height: h + 'px' });
+      sizeLbl.textContent = `${Math.round(w * 2)} × ${Math.round(h * 2)}`;   // Retina pixels, like macOS
+      Object.assign(sizeLbl.style, { display: 'block', left: (x + 12) + 'px', top: (y + 12) + 'px' });
+      return { l, t, w, h };
+    }
+    layer.addEventListener('pointerdown', e => {
+      if (e.button !== 0) return;
+      sx = e.clientX; sy = e.clientY; dragActive = true;
+      layer.setPointerCapture(e.pointerId);
+      drawBox(sx, sy);
+    });
+    layer.addEventListener('pointermove', e => { if (dragActive) drawBox(e.clientX, e.clientY); });
+    layer.addEventListener('pointerup', e => {
+      if (!dragActive) return;
+      dragActive = false;
+      const r = drawBox(e.clientX, e.clientY);
+      if (r.w < 12 || r.h < 12) { box.style.display = 'none'; sizeLbl.style.display = 'none'; return; }   // too small: keep selecting
+      // which chat image does the box cover most?
+      let best = null, bestArea = 0;
+      document.querySelectorAll('.chat-img').forEach(img => {
+        const b = img.getBoundingClientRect();
+        const ow = Math.max(0, Math.min(r.l + r.w, b.right) - Math.max(r.l, b.left));
+        const oh = Math.max(0, Math.min(r.t + r.h, b.bottom) - Math.max(r.t, b.top));
+        if (ow * oh > bestArea) { bestArea = ow * oh; best = img; }
+      });
+      cancelSelect();
+      if (!best) { toast('Screenshot saved. Drag over an image to check it for AI.'); setStep(1); return; }
+      takeScreenshot(best.dataset.state);
+    });
+
+    /* -------------------------------------------------------------------
+       Drag an image: a Clop-style drop zone appears in the corner
+       ------------------------------------------------------------------- */
+    const dropZone = $('drop-zone');
+    let dragState = null;
+
+    document.querySelectorAll('.chat-img').forEach(el => {
+      el.setAttribute('draggable', 'true');
+      el.querySelector('img').setAttribute('draggable', 'false');   // drag the whole card, not the bare <img>
+      el.addEventListener('dragstart', e => {
+        resetAll();
+        dragState = el.dataset.state;
+        e.dataTransfer.effectAllowed = 'copy';
+        e.dataTransfer.setData('text/plain', dragState);
+        const img = el.querySelector('img');
+        e.dataTransfer.setDragImage(img, img.width / 2, img.height / 2);
+        el.classList.add('dragging-src');
+        dropZone.classList.add('show');
+      });
+      el.addEventListener('dragend', () => {
+        el.classList.remove('dragging-src');
+        dropZone.classList.remove('show', 'over');
+        dragState = null;
+      });
+    });
+
+    dropZone.addEventListener('dragenter', e => { e.preventDefault(); dropZone.classList.add('over'); });
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+    dropZone.addEventListener('dragleave', e => { if (!dropZone.contains(e.relatedTarget)) dropZone.classList.remove('over'); });
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      const state = e.dataTransfer.getData('text/plain') || dragState;
+      dropZone.classList.remove('show', 'over');
+      if (!BASE[state]) return;
+      selected = state;
+      runCheck('original');
+    });
+
+    /* -------------------------------------------------------------------
+       The check
+       ------------------------------------------------------------------- */
+    const STEPS = ['Looking for AI watermarks', 'Searching for the original online', 'Running AI detectors'];
+    function runCheck(mode) {
+      const id = ++runId;
+      clearTimeout(popupTimer);
+      $('shot-popup').classList.remove('show');
+      $('check-window').classList.add('show');
+      setStep(3);
+      const steps = mode === 'original' ? STEPS.concat(['Reading edit history']) : STEPS;
+      $('check-body').innerHTML = `
+        <div class="img-row"><img src="${SRC(selected)}" alt="Image being checked"><div><strong>Checking your ${mode === 'original' ? 'original image' : 'screenshot'}</strong><br>This takes a few seconds.</div></div>
+        <ul class="step-list">
+          ${steps.map((s, i) => `<li class="step" id="st-${i}"><span class="ico"><span class="spinner"></span></span>${s}</li>`).join('')}
+          ${mode === 'original' ? '' : '<li class="step skip"><span class="ico"></span>Edit history: not in screenshots</li>'}
+        </ul>`;
+      const gap = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 80 : 550;
+      steps.forEach((_, i) => setTimeout(() => {
+        if (id !== runId) return;
+        const el = $('st-' + i); if (el) { el.classList.add('done'); el.querySelector('.ico').innerHTML = ''; }
+      }, gap * (i + 1)));
+      setTimeout(() => { if (id === runId) { renderResult(selected, mode); setStep(4); } }, gap * (steps.length + 1));
+    }
+
+    function renderResult(state, mode) {
+      const r = getResult(state, mode);
+      const meter = [0, 1, 2].map(i => `<i class="${i < r.sure ? 'on' : ''}"></i>`).join('');
+      const icons = { found: '✓', none: '✕', na: '–' };
+      const names = { found: 'Found', none: 'Not found', na: 'Not available' };
+      const ran = r.evidence.filter(e => e[0] !== 'na').length;
+      const exclude = r.cls === 'uncertain' ? 'Not sure' : r.label;
+      $('check-body').innerHTML = `
+        <div class="img-row"><img src="${SRC(state)}" alt="Checked image"><div><strong>${mode === 'original' ? 'Original image checked' : 'Screenshot checked'}</strong><br>${ran} of 4 checks ran<br><span class="source-tag">${mode === 'original' ? 'Original file' : 'Screenshot'}</span></div></div>
+        <div class="verdict ${r.cls}">
+          <span class="verdict-label"><span class="verdict-icon">${r.icon}</span>${r.label}</span>
+          <h2>${r.title}</h2>
+          <p>${r.summary}</p>
+        </div>
+        <div class="sure"><span>How sure:</span><span class="sure-meter" aria-hidden="true">${meter}</span><strong>${r.sureText}</strong></div>
+        <div>
+          <div class="section-title">Why we think this</div>
+          <ul class="evidence">
+            ${r.evidence.map(([s, t, d]) => `<li><span class="ev-ico ${s}" role="img" aria-label="${names[s]}">${icons[s]}</span><div class="ev-text"><strong>${t}</strong><span>${d}</span></div></li>`).join('')}
+          </ul>
+        </div>
+        ${r.tip ? `<div class="tip"><span>${r.tip}</span>${r.tipBtn ? '<button id="tip-original">Check the original instead</button>' : ''}</div>` : ''}
+        <div class="actions">
+          <button class="btn-primary" id="act-1">${r.primary[0]}</button>
+          <button class="btn-secondary" id="act-2">${r.secondary[0]}</button>
+        </div>
+        <button class="btn-link" id="act-disagree">I disagree with this result</button>
+        <div class="disagree" id="disagree-box">
+          <p>What do you think this image is?</p>
+          <div class="chips">${['Real', 'AI-enhanced', 'AI-generated', 'Not sure'].filter(x => x !== exclude).map(x => `<button class="chip">${x}</button>`).join('')}</div>
+          <span class="thanks">Thanks. We'll use this to improve our checks. Your decision is yours either way.</span>
+        </div>
+        <p class="footnote">Image Check shows evidence, not a verdict. You decide what to trust or share.</p>`;
+      $('act-1').onclick = () => toast(r.primary[1]);
+      $('act-2').onclick = () => toast(r.secondary[1]);
+      if ($('tip-original')) $('tip-original').onclick = () => runCheck('original');
+      const box = $('disagree-box');
+      $('act-disagree').onclick = () => { box.classList.toggle('show'); if (box.classList.contains('show')) { const cb = $('check-body'); cb.scrollTo({ top: cb.scrollHeight, behavior: 'smooth' }); } };
+      box.querySelectorAll('.chip').forEach(c => c.onclick = () => {
+        box.querySelector('.chips').style.display = 'none'; box.querySelector('p').style.display = 'none';
+        box.querySelector('.thanks').style.display = 'block';
+      });
+      $('check-body').scrollTop = 0;
+    }
+
+    function resetAll() {
+      runId++;
+      clearTimeout(popupTimer);
+      $('shot-popup').classList.remove('show'); $('check-window').classList.remove('show');
+    }
+    function startOver() { resetAll(); setStep(1); }
+
+    /* -------------------------------------------------------------------
+       Wiring
+       ------------------------------------------------------------------- */
+    document.querySelectorAll('[data-toast]').forEach(b => b.addEventListener('click', () => { toast(b.dataset.toast); $('shot-popup').classList.remove('show'); }));
+    $('btn-check').addEventListener('click', () => runCheck('shot'));
+    $('shot-close').addEventListener('click', () => { $('shot-popup').classList.remove('show'); setStep(1); });
+    $('check-close').addEventListener('click', startOver);
+
+    $('g-btn').addEventListener('click', () => {
+      if (step === 1) startSelect();
+      else if (step === 2) runCheck('shot');
+      else if (step === 4) startOver();
+    });
+    window.addEventListener('keydown', e => {
+      if (e.code === 'Space' && !selecting) { e.preventDefault(); $('g-btn').click(); }
+      else if (e.key === 'Escape') { if (selecting) cancelSelect(); else startOver(); }
+    });
+
+    /* -------------------------------------------------------------------
+       Draggable windows: drag by the title bar, click to bring forward
+       ------------------------------------------------------------------- */
+    let topZ = 12000;
+    function bringToFront(win) { topZ += 1; win.style.zIndex = topZ; }
+
+    function makeDraggable(win) {
+      const handle = win.querySelector('.window-header');
+      let startX, startY, startLeft, startTop, dragging = false;
+
+      win.addEventListener('pointerdown', () => bringToFront(win));
+
+      handle.addEventListener('pointerdown', e => {
+        if (e.button !== 0 || e.target.closest('button, a')) return;
+        const rect = win.getBoundingClientRect();
+        startX = e.clientX; startY = e.clientY; startLeft = rect.left; startTop = rect.top;
+        dragging = true;
+        win.classList.add('dragging');
+        handle.setPointerCapture(e.pointerId);
+        e.preventDefault();
+      });
+
+      handle.addEventListener('pointermove', e => {
+        if (!dragging) return;
+        const w = win.offsetWidth;
+        // keep at least 80px of the title bar on screen, and never under the menu bar
+        const left = Math.min(window.innerWidth - 80, Math.max(80 - w, startLeft + e.clientX - startX));
+        const top = Math.min(window.innerHeight - 60, Math.max(28, startTop + e.clientY - startY));
+        win.style.left = `${left}px`;
+        win.style.top = `${top}px`;
+      });
+
+      const end = e => {
+        if (!dragging) return;
+        dragging = false;
+        win.classList.remove('dragging');
+        if (handle.hasPointerCapture(e.pointerId)) handle.releasePointerCapture(e.pointerId);
+      };
+      handle.addEventListener('pointerup', end);
+      handle.addEventListener('pointercancel', end);
+    }
+    makeDraggable($('chat-window'));
+    makeDraggable($('check-window'));
+
+    // A new check always opens the Image Check window on top
+    const _runCheck = runCheck;
+    runCheck = function (mode) { bringToFront($('check-window')); return _runCheck(mode); };
+
+    (function tick() {
+      document.getElementById('clock').textContent = new Date().toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).replace(/,/g, '');
+      setTimeout(tick, 15000);
+    })();
+  </script>
+</body>
+</html>
